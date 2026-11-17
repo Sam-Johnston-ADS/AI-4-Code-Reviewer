@@ -1,107 +1,190 @@
-# ReviewBot — AI Code Reviewer
+# CodePulse AI — AI Code Reviewer & Static Analysis Workbench
 
-**ReviewBot** is a production-quality, AI-powered code review web application. It delivers instant, structured, and constructive code reviews covering architecture, correctness bugs, security vulnerabilities, computational performance, style, and suggested improvements.
-
-Unlike generic chat tools, ReviewBot is a single-purpose, paste-in / review-out engineering utility designed for rapid code inspection and refactoring.
+**CodePulse AI** is a purpose-built, non-chat static code analysis workbench that delivers real-time streaming, structured code audits powered by **Next.js 14+ (App Router)**, **TypeScript**, **Tailwind CSS**, and **Google Gemini** via the Vercel AI SDK (`ai` and `@ai-sdk/google`).
 
 ---
 
-## Features
+## 1. System Architecture & Core Flow
 
-- **Streaming Token Delivery**: Real-time streaming response powered by Vercel AI SDK (`streamText` + `@ai-sdk/react`).
-- **Enforced 6-Section Structured Output**:
-  1. **Summary**: High-level health check and architectural assessment.
-  2. **Bugs & Correctness**: Edge cases, boundary errors, off-by-one mistakes, and null risks.
-  3. **Security**: Injection (SQL/XSS/Command), secrets leakage, and OWASP risks.
-  4. **Performance**: Computational Big-O complexity, memory leaks, and sequential I/O optimization.
-  5. **Readability & Style**: Idiomatic conventions, clean naming, and maintainability.
-  6. **Suggested Improvements**: Actionable recommendations with complete, syntax-highlighted corrected code.
-- **Dual-Layer Input Validation**:
-  - Rejects empty or whitespace-only code snippets.
-  - Enforces 8,000 character maximum limit with a live visual counter.
-  - Validates programming language against an allowlist (or auto-detect).
-- **Abuse & DOS Protection**:
-  - In-memory per-IP rate limiter (20 requests/minute with sliding window cleanup).
-  - 64 KB request payload cap.
-- **Instant Sample Snippets**:
-  - 🐛 **Off-by-one Loop & Zero Division** (Bug benchmark)
-  - 🛡️ **SQL Injection & Insecure Auth** (Security benchmark)
-  - ⚡ **Unbounded Cache & Sequential I/O** (Performance benchmark)
-- **Production UX**:
-  - Dark / Light mode toggle with persistent preferences.
-  - One-click "Copy Review" and per-snippet copy buttons.
-  - One-click "Clear" button.
-  - Visible loading indicators (animated spinner + pulsing status bar — no blank screens).
-  - Dismissible error banner with one-click "Try again" action.
+```
+                      ┌──────────────────────────────────────────────┐
+                      │          CodePulse AI Workbench UI           │
+                      │               (src/app/page.tsx)             │
+                      └───────┬──────────────────────────────▲───────┘
+                              │                              │
+          1. POST /api/review │                              │ 4. Real-time UTF-8
+             { code,          │                              │    Streaming Chunks
+               language,      │                              │    via Reader & TextDecoder
+               focus }        │                              │
+                              ▼                              │
+                      ┌──────────────────────────────────────┴───────┐
+                      │             Next.js Route Handler            │
+                      │         (src/app/api/review/route.ts)        │
+                      ├──────────────────────────────────────────────┤
+                      │ • Strict Input Validation (10 - 10,000 chars)│
+                      │ • Backend-only GEMINI_API_KEY Access         │
+                      │ • Structured 4-Stage System Prompt           │
+                      └──────────────────────┬───────────────────────┘
+                                             │
+                         2. streamText()     │ 3. SSE Stream
+                                             ▼
+                      ┌──────────────────────────────────────────────┐
+                      │              Google Gemini API               │
+                      │            (gemini-3.5-flash-lite)           │
+                      └──────────────────────────────────────────────┘
+```
+
+### Key Architectural Highlights
+- **Purpose-Built Workbench (Non-Chat)**: A dual-pane split workspace engineered specifically for developer static analysis rather than conversational chat.
+- **Real-Time Streaming**: Live streaming directly from the server to the browser using `response.body.getReader()` with `TextDecoder` and smooth Markdown rendering via `react-markdown`.
+- **Strict Two-Tier Validation**:
+  - Rejects empty, whitespace-only, or invalid non-string payloads (HTTP 400).
+  - Enforces minimum code length of 10 characters (HTTP 400).
+  - Enforces maximum code length of 10,000 characters with live character counter (HTTP 400).
+- **Explicit Visual States**:
+  - **Idle State**: Instructional blueprint explaining the 4 audit report sections.
+  - **Loading Skeleton**: Shimmering pulse skeleton before the first byte arrives.
+  - **Streaming State**: Pulsing emerald indicator with real-time markdown synthesis.
+  - **Error Banner**: High-visibility dismissible red alert banner displaying exact validation/API errors.
+  - **Completed State**: Copy Report action with visual confirmation badge.
+- **Backend-Only Security**: `GEMINI_API_KEY` is kept strictly within the server runtime. No client-side exposure (`NEXT_PUBLIC_` is strictly forbidden).
 
 ---
 
-## Tech Stack
+## 2. Structured Report Sections
 
-- **Framework**: [Next.js](https://nextjs.org/) (App Router, React 19)
-- **Language**: [TypeScript](https://www.typescriptlang.org/)
-- **Styling**: [Tailwind CSS v4](https://tailwindcss.com/)
-- **AI Engine**: [Vercel AI SDK](https://sdk.vercel.ai/) (`ai`, `@ai-sdk/react`, `@ai-sdk/google`, `@ai-sdk/openai`)
-- **Markdown & Syntax Highlighting**: `react-markdown`, `remark-gfm`, `rehype-highlight`, `highlight.js`
-- **Icons**: `lucide-react`
+Every audit generated by CodePulse AI is strictly structured into 4 sections:
+1. **Executive Summary & Severity Score**: 0–100 health score, severity rating (Critical, High, Medium, Low, Clean), maintainability and architectural health summary.
+2. **Critical Bugs & Edge Cases**: Syntax errors, unhandled nulls, off-by-one errors, resource leaks, and concurrency hazards with line references.
+3. **Security & Performance Bottlenecks**: OWASP vulnerabilities, injection flaws, memory churn, ReDoS, and asymptotic complexity optimizations tailored to the selected audit focus.
+4. **Refactored Production Code**: Hardened, production-grade replacement with defensive guards, error boundaries, and deployment verification checklist.
 
 ---
 
-## Environment Variables
+## 3. Local Setup & Quickstart
 
-ReviewBot reads all AI API keys exclusively on the server side (`process.env`). Keys are never bundled or exposed to the client.
+### Prerequisites
+- **Node.js**: v18.17+ or v20+
+- **npm**: v9+ or v10+
 
+### Step 1: Install Dependencies
+```bash
+npm install
+```
+
+### Step 2: Configure Environment Variables
 Copy `.env.example` to `.env.local`:
-
 ```bash
 cp .env.example .env.local
 ```
 
-Set either a Google Gemini key (recommended) or an OpenAI key:
-
+Edit `.env.local` with your Google Gemini API key:
 ```env
-# Google Gemini (Free tier available at https://aistudio.google.com/)
-GEMINI_API_KEY="your-gemini-api-key"
+GEMINI_API_KEY=your_gemini_api_key_here
+GEMINI_MODEL=gemini-3.5-flash-lite
+```
+*(Get a free API key at [Google AI Studio](https://aistudio.google.com/)).*
 
-# OR OpenAI (Optional alternative)
-# OPENAI_API_KEY="your-openai-api-key"
+### Step 3: Run the Development Server
+```bash
+npm run dev
+```
+Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+### Step 4: Run Production Build & Start
+```bash
+npm run build
+npm run start
 ```
 
 ---
 
-## How to Run Locally
+## 4. API Verification via cURL
 
-1. **Install dependencies**:
-   ```bash
-   npm install
-   ```
+You can test the backend validation and streaming API directly using `curl`:
 
-2. **Run development server**:
-   ```bash
-   npm run dev
-   ```
-   Open [http://localhost:3000](http://localhost:3000) in your browser.
+### A. Test Empty Input Validation (Expected: HTTP 400)
+```bash
+curl -i -X POST http://localhost:3000/api/review \
+  -H "Content-Type: application/json" \
+  -d '{"code": ""}'
+```
+**Response:**
+```json
+HTTP/1.1 400 Bad Request
+{"error":"Input cannot be empty. Please paste valid code to review."}
+```
 
-3. **Build and run production**:
-   ```bash
-   npm run build
-   npm run start
-   ```
+### B. Test Snippet Too Short (Expected: HTTP 400)
+```bash
+curl -i -X POST http://localhost:3000/api/review \
+  -H "Content-Type: application/json" \
+  -d '{"code": "let a = 1"}'
+```
+**Response:**
+```json
+HTTP/1.1 400 Bad Request
+{"error":"Code snippet is too short (minimum 10 characters required)."}
+```
 
-4. **Lint and Typecheck**:
-   ```bash
-   npm run lint
-   ```
+### C. Test Oversized Input Validation (>10,000 chars, Expected: HTTP 400)
+```bash
+python3 -c '
+import urllib.request, json
+data = json.dumps({"code": "a = 1;\n" * 1500}).encode("utf-8")
+req = urllib.request.Request("http://localhost:3000/api/review", data=data, headers={"Content-Type": "application/json"})
+try:
+    urllib.request.urlopen(req)
+except urllib.error.HTTPError as e:
+    print(f"HTTP {e.code}: {e.read().decode()}")
+'
+```
+**Response:**
+```json
+HTTP 400: {"error":"Input exceeds maximum allowed length of 10,000 characters."}
+```
+
+### D. Test Valid Code Audit Streaming (Expected: HTTP 200 Streaming Text)
+```bash
+curl -N -X POST http://localhost:3000/api/review \
+  -H "Content-Type: application/json" \
+  -d '{
+    "code": "def divide(a, b): return a / b",
+    "language": "Python",
+    "focus": "Security & Bugs"
+  }'
+```
 
 ---
 
-## Design Decisions
+## 5. Deployment Setup (Vercel)
 
-1. **Single-Purpose Paste-In / Review-Out Interface**:
-   Avoided conversational chat overhead. Developers want quick, focused code assessments without conversational preamble.
-2. **Server-Side API Key Isolation**:
-   All LLM interactions occur inside `app/api/review/route.ts`. The client only initiates a request and receives raw streaming tokens.
-3. **Resilient Stream Preflight Validation**:
-   Before returning HTTP 200, the route handler performs preflight validation on the stream iterator to intercept authentication or provider errors (such as invalid keys or quota limits). This allows the server to return an appropriate HTTP 4xx/5xx status with actionable error details rather than failing silently inside an open stream.
-4. **Accessible Error Banner with Retry**:
-   Error states are prominently displayed with an alert icon, clear message, and an instant "Try again" button to smoothly recover from transient failures.
+1. Push your repository to GitHub / GitLab.
+2. Import the project into your [Vercel Dashboard](https://vercel.com).
+3. Under **Project Settings > Environment Variables**, add:
+   - **`GEMINI_API_KEY`**: Your Google Gemini API key.
+   - **`GEMINI_MODEL`** *(optional)*: `gemini-3.5-flash-lite` (or `gemini-3.8-flash`).
+4. Click **Deploy**. Vercel will automatically build the Next.js App Router application with zero configuration.
+
+---
+
+## 6. Project Structure
+
+```
+├── .env.example              # Template environment variables
+├── .env.local                # Local private secrets (git-ignored)
+├── next.config.mjs           # Next.js configuration
+├── package.json              # Project dependencies and build scripts
+├── postcss.config.mjs        # PostCSS configuration
+├── tailwind.config.ts        # Tailwind CSS styling tokens
+├── tsconfig.json             # TypeScript configuration
+├── src/
+│   └── app/
+│       ├── api/
+│       │   └── review/
+│       │       └── route.ts  # POST streaming handler with strict input validation
+│       ├── globals.css       # Tailwind base styles and markdown prose styling
+│       ├── layout.tsx        # Root HTML layout and metadata
+│       └── page.tsx          # Dual-pane workbench UI with stream consumer
+└── README.md                 # Architecture, setup, and verification guide
+```
