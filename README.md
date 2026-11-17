@@ -2,6 +2,9 @@
 
 **CodePulse AI** is a purpose-built, non-chat static code analysis workbench that delivers real-time streaming, structured code audits powered by **Next.js 14+ (App Router)**, **TypeScript**, **Tailwind CSS**, and **Google Gemini** via the Vercel AI SDK (`ai` and `@ai-sdk/google`).
 
+- **Live Production URL**: [https://ai-4-code-reviewer.vercel.app](https://ai-4-code-reviewer.vercel.app)
+- **GitHub Repository**: [https://github.com/Sam-Johnston-ADS/AI-4-Code-Reviewer](https://github.com/Sam-Johnston-ADS/AI-4-Code-Reviewer)
+
 ---
 
 ## 1. System Architecture & Core Flow
